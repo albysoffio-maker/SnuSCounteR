@@ -1,6 +1,6 @@
 import SwiftUI
 import Charts
-
+ 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var counts: [String: Int] = SyncStore.counts()
@@ -9,16 +9,18 @@ struct ContentView: View {
     @State private var range = 7
     @State private var syncToken = 0
     @State private var showToast = false
-
+ 
+    private static let italian = Locale(identifier: "it_IT")
+ 
     // MARK: Dati
-
+ 
     private var today: Int { counts[CounterStore.dayKey(now)] ?? 0 }
-
+ 
     private var yesterday: Int {
         guard let d = Calendar.current.date(byAdding: .day, value: -1, to: now) else { return 0 }
         return counts[CounterStore.dayKey(d)] ?? 0
     }
-
+ 
     /// Ultimi n giorni, dal più vecchio a oggi, con gli zeri dove non c'è nulla.
     private func days(_ n: Int) -> [DayCount] {
         let cal = Calendar.current
@@ -27,28 +29,29 @@ struct ContentView: View {
             return DayCount(date: cal.startOfDay(for: d), count: counts[CounterStore.dayKey(d)] ?? 0)
         }
     }
-
+ 
     private var weekTotal: Int { days(7).reduce(0) { $0 + $1.count } }
     private var weekAverage: Double { Double(weekTotal) / 7.0 }
     private var record: Int { counts.values.max() ?? 0 }
-
+ 
     private var chartAverage: Double {
         Double(days(range).reduce(0) { $0 + $1.count }) / Double(range)
     }
-
+ 
     private var axisFormat: Date.FormatStyle {
-        range == 7 ? Date.FormatStyle().weekday(.narrow) : Date.FormatStyle().day()
+        let style = range == 7 ? Date.FormatStyle().weekday(.narrow) : Date.FormatStyle().day()
+        return style.locale(Self.italian)
     }
-
+ 
     private var delta: (text: String, icon: String, color: Color) {
         let diff = today - yesterday
         if diff == 0 { return ("Come ieri", "equal", Color.secondary) }
         if diff > 0 { return ("\(diff) in più di ieri", "arrow.up.right", Color.snusCoral) }
         return ("\(-diff) in meno di ieri", "arrow.down.right", Color.snusMint)
     }
-
+ 
     // MARK: Schermata
-
+ 
     var body: some View {
         ZStack(alignment: .top) {
             LinearGradient(
@@ -57,7 +60,7 @@ struct ContentView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-
+ 
             ScrollView {
                 VStack(spacing: 16) {
                     header
@@ -75,28 +78,29 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-
+ 
             if showToast { toast }
         }
         .preferredColorScheme(.dark)
+        .environment(\.locale, Self.italian)
         .onOpenURL { url in handle(url) }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { now = Date() }
         }
         .sensoryFeedback(.success, trigger: syncToken)
     }
-
+ 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Snus Counter")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
-            Text(now, format: .dateTime.weekday(.wide).day().month(.wide))
+            Text(now, format: Date.FormatStyle().weekday(.wide).day().month(.wide).locale(Self.italian))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-
+ 
     private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .padding(16)
@@ -110,7 +114,7 @@ struct ContentView: View {
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
     }
-
+ 
     private var todayCard: some View {
         card {
             VStack(alignment: .leading, spacing: 4) {
@@ -127,21 +131,21 @@ struct ContentView: View {
             }
         }
     }
-
+ 
     private var statsGrid: some View {
         LazyVGrid(
             columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
             spacing: 12
         ) {
             tile(title: "Media 7 giorni",
-                 value: weekAverage.formatted(.number.precision(.fractionLength(1))),
+                 value: weekAverage.formatted(.number.precision(.fractionLength(1)).locale(Self.italian)),
                  icon: "chart.line.uptrend.xyaxis", tint: Color.snusMint)
             tile(title: "Totale 7 giorni", value: "\(weekTotal)", icon: "sum", tint: Color.white)
             tile(title: "Ieri", value: "\(yesterday)", icon: "clock.arrow.circlepath", tint: Color.snusCoral)
             tile(title: "Record giornaliero", value: "\(record)", icon: "trophy.fill", tint: Color.yellow)
         }
     }
-
+ 
     private func tile(title: String, value: String, icon: String, tint: Color) -> some View {
         card {
             VStack(alignment: .leading, spacing: 8) {
@@ -155,20 +159,20 @@ struct ContentView: View {
             }
         }
     }
-
+ 
     private var chartCard: some View {
         card {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Andamento")
                     .font(.headline)
-
+ 
                 Picker("Periodo", selection: $range) {
                     Text("7 giorni").tag(7)
                     Text("14 giorni").tag(14)
                     Text("30 giorni").tag(30)
                 }
                 .pickerStyle(.segmented)
-
+ 
                 Chart {
                     ForEach(days(range)) { day in
                         BarMark(
@@ -195,7 +199,7 @@ struct ContentView: View {
                     AxisMarks(position: .leading)
                 }
                 .frame(height: 190)
-
+ 
                 HStack(spacing: 6) {
                     Rectangle()
                         .fill(Color.snusCoral.opacity(0.8))
@@ -207,7 +211,7 @@ struct ContentView: View {
             }
         }
     }
-
+ 
     private var historyCard: some View {
         let ordered = Array(days(14).reversed())
         let maxCount = max(ordered.map { $0.count }.max() ?? 1, 1)
@@ -217,7 +221,7 @@ struct ContentView: View {
                     .font(.headline)
                 ForEach(ordered) { day in
                     HStack(spacing: 10) {
-                        Text(day.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
+                        Text(day.date, format: Date.FormatStyle().weekday(.abbreviated).day().month(.abbreviated).locale(Self.italian))
                             .font(.subheadline)
                             .foregroundStyle(Calendar.current.isDateInToday(day.date) ? Color.snusMint : Color.white)
                         Spacer()
@@ -237,7 +241,7 @@ struct ContentView: View {
             }
         }
     }
-
+ 
     private var emptyCard: some View {
         card {
             VStack(spacing: 12) {
@@ -254,7 +258,7 @@ struct ContentView: View {
             .frame(maxWidth: .infinity)
         }
     }
-
+ 
     private var howToCard: some View {
         card {
             DisclosureGroup {
@@ -273,13 +277,13 @@ struct ContentView: View {
             .tint(Color.snusMint)
         }
     }
-
+ 
     private var footer: some View {
         Group {
             if let lastSync {
                 HStack(spacing: 0) {
                     Text("Ultimo aggiornamento: ")
-                    Text(lastSync, format: .dateTime.day().month().hour().minute())
+                    Text(lastSync, format: Date.FormatStyle().day().month().hour().minute().locale(Self.italian))
                 }
             } else {
                 Text("Mai sincronizzata")
@@ -289,7 +293,7 @@ struct ContentView: View {
         .foregroundStyle(.secondary)
         .padding(.bottom, 8)
     }
-
+ 
     private var toast: some View {
         Label("Dati sincronizzati", systemImage: "checkmark.circle.fill")
             .font(.subheadline.weight(.semibold))
@@ -300,9 +304,9 @@ struct ContentView: View {
             .padding(.top, 8)
             .transition(.move(edge: .top).combined(with: .opacity))
     }
-
+ 
     // MARK: Azioni
-
+ 
     private func handle(_ url: URL) {
         guard SyncStore.importFrom(url: url) else { return }
         counts = SyncStore.counts()
@@ -315,3 +319,4 @@ struct ContentView: View {
         }
     }
 }
+ 
