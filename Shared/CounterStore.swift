@@ -95,6 +95,11 @@ enum CounterStore {
         all()[dayKey(date)] ?? 0
     }
 
+    static func yesterdayCount() -> Int {
+        guard let d = Calendar.current.date(byAdding: .day, value: -1, to: Date()) else { return 0 }
+        return count(on: d)
+    }
+
     /// Aggiunge (o toglie, con delta negativo) e restituisce il nuovo totale. Mai sotto zero.
     @discardableResult
     static func add(_ delta: Int, on date: Date = Date()) -> Int {
