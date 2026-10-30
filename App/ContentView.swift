@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var syncToken = 0
     @State private var showToast = false
     @State private var notifStatus: UNAuthorizationStatus = .notDetermined
+    @State private var expiry: Date? = Provisioning.expirationDate()
 
     private static let italian = Locale(identifier: "it_IT")
 
@@ -75,6 +76,7 @@ struct ContentView: View {
                         emptyCard
                     }
                     notifCard
+                    renewCard
                     howToCard
                     footer
                 }
@@ -311,12 +313,72 @@ struct ContentView: View {
         }
     }
 
+    private var notifAllowed: Bool {
+        switch notifStatus {
+        case .authorized, .provisional, .ephemeral: return true
+        default: return false
+        }
+    }
+
+    private var renewCard: some View {
+        card {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Promemoria rinnovo", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.headline)
+
+                if let expiry {
+                    HStack(spacing: 4) {
+                        Text("Scade:")
+                            .foregroundStyle(.secondary)
+                        Text(expiry, format: Date.FormatStyle().weekday(.wide).day().month(.wide).hour().minute().locale(Self.italian))
+                            .fontWeight(.semibold)
+                    }
+                    .font(.subheadline)
+                    Text(remainingText(until: expiry))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(expiry.timeIntervalSince(now) < 86_400 ? Color.snusCoral : Color.snusMint)
+                    Text("Ti avviso il giorno prima alle 18:00 e di nuovo 3 ore prima. Per rinnovare: collega l'iPhone e premi Start in Sideloadly, installando sopra l'app.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if notifAllowed {
+                        Button("Prova il promemoria") {
+                            Task { await ExpiryReminder.sendTest() }
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(Color.snusMint)
+                    } else {
+                        Text("Attiva le notifiche qui sopra per ricevere il promemoria.")
+                            .font(.footnote)
+                            .foregroundStyle(Color.snusCoral)
+                    }
+                } else {
+                    Text("Non riesco a leggere la data di scadenza dell'app: i promemoria di rinnovo non sono attivi.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func remainingText(until expiry: Date) -> String {
+        if expiry <= now { return "Scaduta: rinnovala con Sideloadly." }
+        let parts = Calendar.current.dateComponents([.day, .hour], from: now, to: expiry)
+        let d = parts.day ?? 0
+        let h = parts.hour ?? 0
+        let hours = "\(h) \(h == 1 ? "ora" : "ore")"
+        if d > 0 { return "Mancano \(d) \(d == 1 ? "giorno" : "giorni") e \(hours)." }
+        return "Mancano \(hours)."
+    }
+
     private func refreshNotifStatus() {
+        expiry = Provisioning.expirationDate()
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
                 notifStatus = settings.authorizationStatus
             }
         }
+        // Riprogramma i promemoria: dopo un rinnovo la scadenza è cambiata.
+        Task { await ExpiryReminder.schedule() }
     }
 
     private var howToCard: some View {

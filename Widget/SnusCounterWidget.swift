@@ -41,7 +41,12 @@ struct SnusProvider: TimelineProvider {
             matching: DateComponents(hour: 0, minute: 0),
             matchingPolicy: .nextTime
         ) ?? now.addingTimeInterval(3600)
-        completion(Timeline(entries: [makeEntry()], policy: .after(midnight)))
+        let entry = makeEntry()
+        Task {
+            // Anche il widget aggiorna i promemoria di rinnovo ogni volta che si ricarica.
+            await ExpiryReminder.schedule()
+            completion(Timeline(entries: [entry], policy: .after(midnight)))
+        }
     }
 }
 
