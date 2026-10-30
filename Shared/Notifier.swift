@@ -8,23 +8,15 @@ enum Notifier {
 
     /// Chiamata quando oggi supera il numero di ieri.
     static func notifyOverYesterday(today: Int, yesterday: Int) async {
-        await post(
-            id: "va-pian-\(CounterStore.dayKey())",
-            title: "Va pian",
-            body: "Oggi sei a \(today), ieri eri a \(yesterday)."
-        )
+        await post(id: "va-pian-\(CounterStore.dayKey())", title: "Va pian")
     }
 
     /// Notifica di prova dal pulsante nell'app.
     static func sendTest() async {
-        await post(
-            id: "va-pian-prova",
-            title: "Va pian",
-            body: "Così ti avviso quando superi il numero di ieri."
-        )
+        await post(id: "va-pian-prova", title: "Va pian")
     }
 
-    private static func post(id: String, title: String, body: String) async {
+    private static func post(id: String, title: String, body: String? = nil) async {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         switch settings.authorizationStatus {
@@ -36,7 +28,7 @@ enum Notifier {
 
         let content = UNMutableNotificationContent()
         content.title = title
-        content.body = body
+        if let body { content.body = body }
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
