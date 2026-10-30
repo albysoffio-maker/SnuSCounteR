@@ -1,0 +1,55 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installa XcodeGen
+        run: brew install xcodegen
+
+      - name: Genera il progetto Xcode
+        run: |
+          mkdir -p Config
+          xcodegen generate
+
+      - name: Compila (senza firma)
+        run: |
+          xcodebuild \
+            -project SnusCounter.xcodeproj \
+            -scheme SnusCounter \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # Inserisce gli entitlements (App Group) nei binari, così Sideloadly può leggerli.
+      # Se fallisce l'IPA viene comunque creato.
+      - name: Inserisci entitlements (pseudo-firma)
+        continue-on-error: true
+        run: |
+          brew install ldid
+          APP=build/Build/Products/Release-iphoneos/SnusCounter.app
+          ldid -SConfig/Widget.entitlements "$APP/PlugIns/SnusWidget.appex/SnusWidget"
+          ldid -SConfig/App.entitlements "$APP/SnusCounter"
+
+      - name: Crea l'IPA
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/SnusCounter.app Payload/
+          zip -qry SnusCounter.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SnusCounter-ipa
+          path: SnusCounter.ipa
