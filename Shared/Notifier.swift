@@ -8,12 +8,12 @@ enum Notifier {
 
     /// Chiamata quando oggi supera il numero di ieri.
     static func notifyOverYesterday(today: Int, yesterday: Int) async {
-        await post(id: "va-pian-\(CounterStore.dayKey())", title: "Va pian")
+        await post(id: "va-pian-\(CounterStore.dayKey())", title: "Vai piano drago 🐲")
     }
 
     /// Notifica di prova dal pulsante nell'app.
     static func sendTest() async {
-        await post(id: "va-pian-prova", title: "Va pian")
+        await post(id: "va-pian-prova", title: "Vai piano drago 🐲")
     }
 
     private static func post(id: String, title: String, body: String? = nil) async {
